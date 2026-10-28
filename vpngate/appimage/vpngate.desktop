@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=VPN Gate
+Comment=VPN Gate client (SoftEther / L2TP / OpenVPN)
+Exec=vpngate
+Icon=vpngate
+Categories=Network;
+Terminal=false

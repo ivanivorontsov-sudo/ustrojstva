@@ -1,0 +1,35 @@
+#!/bin/bash
+# VPN Gate (SoftEther) — AppImage launcher
+HERE="$(dirname "$(readlink -f "$0")")"
+export PYTHONPATH="$HERE/usr/lib/py${PYTHONPATH:+:$PYTHONPATH}"
+export QT_PLUGIN_PATH="$HERE/usr/lib/py/PyQt6/Qt6/plugins"
+SE=/opt/vpngate-se
+need_install() {
+  [ -x $SE/vpnclient ] || return 0
+  cmp -s "$HERE/usr/share/vpngate-se/vpnclient" $SE/vpnclient || return 0
+  cmp -s "$HERE/usr/share/vpngate-se/dh.sh" $SE/dh.sh || return 0
+  return 1
+}
+install_se() {
+  cat > /tmp/vpngate-se-install.sh <<X
+set -e
+$SE/vpnclient stop >/dev/null 2>&1 || true
+mkdir -p $SE
+for f in vpnclient vpncmd hamcore.se2 busybox dh.sh; do install -m 755 "$HERE/usr/share/vpngate-se/\$f" $SE/\$f; done
+modprobe tun 2>/dev/null || true
+echo tun > /etc/modules-load.d/tun.conf
+[ -e /dev/net/tun ] || { mkdir -p /dev/net; mknod /dev/net/tun c 10 200; chmod 666 /dev/net/tun; }
+X
+  if [ "$(id -u)" = 0 ]; then bash /tmp/vpngate-se-install.sh; else pkexec bash /tmp/vpngate-se-install.sh || sudo bash /tmp/vpngate-se-install.sh; fi
+}
+case "$1" in
+  --install)
+    install_se
+    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+    [ -n "$APPIMAGE" ] && cp -f "$APPIMAGE" "$HOME/.local/bin/VPNGate.AppImage" && chmod +x "$HOME/.local/bin/VPNGate.AppImage"
+    sed "s#^Exec=.*#Exec=$HOME/.local/bin/VPNGate.AppImage#" "$HERE/vpngate.desktop" > "$HOME/.local/share/applications/vpngate.desktop"
+    echo "Установлено: меню → VPN Gate"; exit 0;;
+  --setup) install_se; exit $?;;
+esac
+need_install && install_se
+exec /usr/bin/python3 "$HERE/usr/bin/vpngate" "$@"
